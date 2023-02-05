@@ -70,10 +70,13 @@ public class SoilGenerator : MonoBehaviour
 
     public enum Direction
     {
-        Up, Down, Left, Right
+        Up,
+        Down,
+        Left,
+        Right
     }
 
-    private Direction _playerDirection;
+    private Direction _playerDirection = Direction.Down;
 
     // Start is called before the first frame update
     void Start()
@@ -86,11 +89,42 @@ public class SoilGenerator : MonoBehaviour
         _score = 0;
         ScoreText.text = "" + _score;
         FinalScoreText.text = "" + _score;
-        _wait = 100;
     }
 
-    void FixedUpdate()
+    void Update()
     {
+        if (Input.GetKeyDown(KeyCode.DownArrow))
+        {
+            _playerDirection = Direction.Down;
+        }
+        else if (Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            _playerDirection = Direction.Up;
+        }
+        else if (Input.GetKeyDown(KeyCode.LeftArrow))
+        {
+            _playerDirection = Direction.Left;
+        }
+        else if (Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            _playerDirection = Direction.Right;
+        }
+
+        Camera.main.gameObject.transform.position = new Vector3(_playerLocation.x, _playerLocation.y, _camZPos);
+
+        for (int i = 0; i < hearts.Length; i++)
+        {
+            if (i < _playerLives)
+            {
+                hearts[i].enabled = true;
+            }
+            else
+            {
+                hearts[i].enabled = false;
+            }
+        }
+
+        ScoreText.text = "" + _score;
 
         if (Instructions.enabled)
         {
@@ -108,7 +142,7 @@ public class SoilGenerator : MonoBehaviour
             _isMoving = false;
             FinalScoreText.text = "" + _score;
             EndScreen.enabled = true;
-            if (_wait <= 0  && Input.anyKeyDown)
+            if (_wait <= 0 && Input.anyKeyDown)
             {
                 this.Start();
             }
@@ -116,14 +150,18 @@ public class SoilGenerator : MonoBehaviour
             _wait--;
             return;
         }
+    }
 
-
+    void FixedUpdate()
+    {
         if (!_isMoving)
         {
             return;
         }
 
-        if (_wait != 0)
+        print("Time to move");
+
+        if (_wait >= 0)
         {
             _wait--;
             return;
@@ -131,22 +169,7 @@ public class SoilGenerator : MonoBehaviour
 
         var originalPlayerLocation = _playerLocation;
         bool playerMoved = false;
-        if (Input.GetKeyDown(KeyCode.DownArrow))
-        {
-            _playerDirection = Direction.Down;
-        }
-        else if (Input.GetKeyDown(KeyCode.UpArrow))
-        {
-            _playerDirection = Direction.Up;
-        }
-        else if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            _playerDirection = Direction.Left;
-        }
-        else if (Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            _playerDirection = Direction.Right;
-        }
+
 
         switch (_playerDirection)
         {
@@ -203,7 +226,7 @@ public class SoilGenerator : MonoBehaviour
             else if (newLocationType == TileType.Nutrient)
             {
                 _map[_playerLocation.x, _playerLocation.y] = TileType.RootWithNutrient;
-                _score += 5;
+                _score += 20;
             }
 
             else if (newLocationType == TileType.Heart)
@@ -219,7 +242,9 @@ public class SoilGenerator : MonoBehaviour
                 do
                 {
                     _playerLocation = new Vector2Int(Random.Range(0, Width), Random.Range(0, Height));
-                } while (!(_map[_playerLocation.x, _playerLocation.y] == TileType.Soil && OnlyOneSurroundingTileIsRoot(_playerLocation.x, _playerLocation.y, _map)));
+                } while (!(_map[_playerLocation.x, _playerLocation.y] == TileType.Soil &&
+                           OnlyOneSurroundingTileIsRootAndNotSoil(_playerLocation.x, _playerLocation.y, _map)));
+
                 _map[_playerLocation.x, _playerLocation.y] = TileType.Root;
             }
             // else
@@ -230,33 +255,37 @@ public class SoilGenerator : MonoBehaviour
             RenderMap(_map);
         }
 
-        Camera.main.gameObject.transform.position = new Vector3(_playerLocation.x, _playerLocation.y, _camZPos);
-
-        for (int i = 0; i < hearts.Length; i++)
-        {
-            if (i < _playerLives)
-            {
-                hearts[i].enabled = true;
-            }
-            else
-            {
-                hearts[i].enabled = false;
-            }
-        }
-
-
-        ScoreText.text = "" + _score;
         _wait = WaitingPeriod;
     }
 
-    private bool OnlyOneSurroundingTileIsRoot(int x, int y, TileType[,] map)
+    private bool OnlyOneSurroundingTileIsRootAndNotSoil(int x, int y, TileType[,] map)
     {
-        int rootCount = 0;
-        if (x > 0 && map[x - 1, y] == TileType.Root) rootCount++;
-        if (x < Width -1 && map[x + 1, y] == TileType.Root) rootCount++;
-        if (y > 0 && map[x, y - 1] == TileType.Root) rootCount++;
-        if (y < Height - 1 && map[x, y + 1] == TileType.Root) rootCount++;
-        return rootCount == 1;
+        int nonSoilCount = 0;
+        if (x > 0 && map[x - 1, y] == TileType.Root && map[x - 1, y] != TileType.Soil)
+        {
+            nonSoilCount++;
+            _playerDirection = Direction.Right;
+        }
+
+        if (x < Width - 1 && map[x + 1, y] == TileType.Root && map[x + 1, y] != TileType.Soil)
+        {
+            nonSoilCount++;
+            _playerDirection = Direction.Left;
+        }
+
+        if (y > 0 && map[x, y - 1] == TileType.Root && map[x, y - 1] != TileType.Soil)
+        {
+            nonSoilCount++;
+            _playerDirection = Direction.Up;
+        }
+
+        if (y < Height - 1 && map[x, y + 1] == TileType.Root && map[x, y + 1] != TileType.Soil)
+        {
+            nonSoilCount++;
+            _playerDirection = Direction.Down;
+        }
+
+        return nonSoilCount == 1;
     }
 
     void Generation()
